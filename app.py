@@ -889,38 +889,42 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=port, debug=True)
 else:
     # Serverless (Vercel) — initialize DB on cold start
-    with app.app_context():
-        db.create_all()
-        # Only seed if tables are empty
-        if not User.query.filter_by(username='admin').first():
-            admin = User(username='admin', email='admin@cmhub.local', role='admin')
-            admin.set_password('admin123')
-            db.session.add(admin)
-        if not User.query.filter_by(username='manager').first():
-            mgr = User(username='manager', email='manager@cmhub.local', role='change_manager')
-            mgr.set_password('manager123')
-            db.session.add(mgr)
-        if not CorporateIdentity.query.first():
-            ci = CorporateIdentity()
-            db.session.add(ci)
-        if not AudienceSegment.query.first():
-            segments = [
-                AudienceSegment(name='Executive Leadership', description='C-suite and senior VPs',
-                    attributes='Decision-makers, strategic view, limited time',
-                    communication_prefs='Briefing decks, email summaries',
-                    stakeholder_level='Executive'),
-                AudienceSegment(name='Line Managers', description='Direct managers of teams',
-                    attributes='Operational focus, need practical guidance',
-                    communication_prefs='Team meetings toolkits, email updates',
-                    stakeholder_level='Management'),
-                AudienceSegment(name='Frontline Teams', description='Employees directly impacted',
-                    attributes='Want to know WIIFM, practical impact on daily work',
-                    communication_prefs='Town halls, team huddles, simple infographics',
-                    stakeholder_level='Frontline'),
-                AudienceSegment(name='Project Team', description='Change network and implementation team',
-                    attributes='Detail-oriented, need timelines and action items',
-                    communication_prefs='Project dashboards, weekly standups',
-                    stakeholder_level='Operational'),
-            ]
-            db.session.add_all(segments)
-        db.session.commit()
+    try:
+        with app.app_context():
+            db.create_all()
+            # Only seed if tables are empty
+            if not User.query.filter_by(username='admin').first():
+                admin = User(username='admin', email='admin@cmhub.local', role='admin')
+                admin.set_password('admin123')
+                db.session.add(admin)
+            if not User.query.filter_by(username='manager').first():
+                mgr = User(username='manager', email='manager@cmhub.local', role='change_manager')
+                mgr.set_password('manager123')
+                db.session.add(mgr)
+            if not CorporateIdentity.query.first():
+                ci = CorporateIdentity()
+                db.session.add(ci)
+            if not AudienceSegment.query.first():
+                segments = [
+                    AudienceSegment(name='Executive Leadership', description='C-suite and senior VPs',
+                        attributes='Decision-makers, strategic view, limited time',
+                        communication_prefs='Briefing decks, email summaries',
+                        stakeholder_level='Executive'),
+                    AudienceSegment(name='Line Managers', description='Direct managers of teams',
+                        attributes='Operational focus, need practical guidance',
+                        communication_prefs='Team meetings toolkits, email updates',
+                        stakeholder_level='Management'),
+                    AudienceSegment(name='Frontline Teams', description='Employees directly impacted',
+                        attributes='Want to know WIIFM, practical impact on daily work',
+                        communication_prefs='Town halls, team huddles, simple infographics',
+                        stakeholder_level='Frontline'),
+                    AudienceSegment(name='Project Team', description='Change network and implementation team',
+                        attributes='Detail-oriented, need timelines and action items',
+                        communication_prefs='Project dashboards, weekly standups',
+                        stakeholder_level='Operational'),
+                ]
+                db.session.add_all(segments)
+            db.session.commit()
+    except Exception as e:
+        import logging
+        logging.warning(f"DB init skipped (expected on first deploy): {e}")
