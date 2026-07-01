@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block page_title %}Brand Identity{% endblock %}
+{% block content %}
+
+<div class="grid-2">
+    <div class="card">
+        <div class="card-title">Current Brand Settings</div>
+
+        {% if identity %}
+        <div style="margin-bottom:20px;">
+            <div style="display:flex;gap:16px;margin-bottom:16px;align-items:center;">
+                {% if identity.logo_path %}
+                <div style="width:80px;height:80px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                    <img src="{{ url_for('logo_file', filename=identity.logo_path) }}" style="max-width:100%;max-height:100%;">
+                </div>
+                {% endif %}
+                <div>
+                    <h3 style="font-size:18px;font-weight:700;">{{ identity.brand_name }}</h3>
+                    <p style="font-size:12px;color:var(--text-muted);">{{ identity.footer_text }}</p>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+                <div style="width:48px;height:48px;border-radius:8px;background:{{ identity.primary_colour }};border:1px solid rgba(255,255,255,0.1);"></div>
+                <div style="width:48px;height:48px;border-radius:8px;background:{{ identity.secondary_colour }};border:1px solid rgba(255,255,255,0.1);"></div>
+                <div style="width:48px;height:48px;border-radius:8px;background:{{ identity.accent_colour }};border:1px solid rgba(255,255,255,0.1);"></div>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);">
+                <p><strong>Primary:</strong> <span style="font-family:monospace;">{{ identity.primary_colour }}</span></p>
+                <p><strong>Secondary:</strong> <span style="font-family:monospace;">{{ identity.secondary_colour }}</span></p>
+                <p><strong>Accent:</strong> <span style="font-family:monospace;">{{ identity.accent_colour }}</span></p>
+                <p><strong>Font:</strong> {{ identity.font_primary }}</p>
+            </div>
+        </div>
+        {% else %}
+        <p class="text-muted">Default brand settings are active.</p>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-title">Update Brand Settings</div>
+        <form method="POST" action="{{ url_for('update_identity') }}" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Brand Name</label>
+                <input type="text" name="brand_name" class="form-control" value="{{ identity.brand_name if identity else 'Change Management Hub' }}">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Primary Colour</label>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="color" name="primary_colour" class="form-control" value="{{ identity.primary_colour if identity else '#1a1f36' }}" style="width:50px;padding:4px;height:42px;">
+                        <input type="text" class="form-control" value="{{ identity.primary_colour if identity else '#1a1f36' }}" style="flex:1;" id="primaryDisplay" readonly>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Secondary Colour</label>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="color" name="secondary_colour" class="form-control" value="{{ identity.secondary_colour if identity else '#1e2745' }}" style="width:50px;padding:4px;height:42px;">
+                        <input type="text" class="form-control" value="{{ identity.secondary_colour if identity else '#1e2745' }}" style="flex:1;" id="secondaryDisplay" readonly>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Accent Colour</label>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <input type="color" name="accent_colour" class="form-control" value="{{ identity.accent_colour if identity else '#e8a838' }}" style="width:50px;padding:4px;height:42px;">
+                    <input type="text" class="form-control" value="{{ identity.accent_colour if identity else '#e8a838' }}" style="flex:1;" id="accentDisplay" readonly>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Primary Font</label>
+                <input type="text" name="font_primary" class="form-control" value="{% if identity %}{{ identity.font_primary }}{% else %}'Inter', sans-serif{% endif %}">
+            </div>
+            <div class="form-group">
+                <label>Footer Text</label>
+                <input type="text" name="footer_text" class="form-control" value="{{ identity.footer_text if identity else 'Change Management Hub © 2026' }}">
+            </div>
+            <div class="form-group">
+                <label>Logo (PNG, SVG, JPG)</label>
+                <input type="file" name="logo" class="form-control" accept=".png,.jpg,.jpeg,.gif,.svg">
+            </div>
+            <div class="modal-actions">
+                <button type="submit" class="btn btn-primary">Save Brand Settings</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-6">
+    <div class="card-title">Preview — Generated Documents</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Below is how your generated Word and PowerPoint documents will look with current brand settings.</p>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:200px;">
+            <div style="background:{{ identity.primary_colour if identity else '#1a1f36' }};border-radius:8px;padding:24px;border:1px solid var(--card-border);">
+                <div style="font-size:10px;color:{{ identity.accent_colour if identity else '#e8a838' }};font-weight:700;letter-spacing:1px;text-transform:uppercase;">{{ identity.brand_name if identity else 'CM HUB' }}</div>
+                <hr style="border-color:{{ identity.accent_colour if identity else '#e8a838' }};margin:12px 0;">
+                <h2 style="color:var(--text-light);font-size:16px;">Document Title Here</h2>
+                <p style="color:var(--text-muted);font-size:11px;margin-top:8px;">Sample body text showing how your communications will appear.</p>
+                <div style="margin-top:12px;font-size:11px;font-weight:700;color:{{ identity.accent_colour if identity else '#e8a838' }};">Call to action →</div>
+                <div style="margin-top:16px;font-size:9px;color:var(--text-muted);text-align:center;">{{ identity.footer_text if identity else '© 2026' }}</div>
+            </div>
+            <p style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px;">Word Document</p>
+        </div>
+        <div style="flex:1;min-width:200px;">
+            <div style="background:{{ identity.secondary_colour if identity else '#1e2745' }};border-radius:8px;padding:24px;border:1px solid var(--card-border);min-height:200px;display:flex;flex-direction:column;justify-content:center;">
+                <div style="font-size:10px;color:{{ identity.accent_colour if identity else '#e8a838' }};font-weight:700;letter-spacing:1px;">{{ identity.brand_name if identity else 'CM HUB' }}</div>
+                <div style="font-size:20px;color:var(--text-light);font-weight:700;margin:16px 0 8px;">Slide Title</div>
+                <div style="font-size:11px;color:var(--accent);">PowerPoint</div>
+            </div>
+            <p style="text-align:center;font-size:11px;color:var(--text-muted);margin-top:8px;">PowerPoint Presentation</p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('input[type="color"]').forEach(picker => {
+    picker.addEventListener('input', function() {
+        const display = this.parentElement.querySelector('input[type="text"]');
+        if (display) display.value = this.value;
+    });
+});
+</script>
+{% endblock %}

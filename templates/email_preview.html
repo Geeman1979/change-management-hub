@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Preview — {{ comm.title }}</title>
+    <style>
+        body { margin:0; padding:0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background:#0f1525; color:#f0f0f0; }
+        .container { max-width:700px; margin:30px auto; padding:0 20px; }
+        .toolbar { display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap; }
+        .btn {
+            display:inline-flex; align-items:center; gap:6px; padding:8px 18px; border-radius:6px;
+            font-size:13px; font-weight:500; border:none; cursor:pointer; transition:all 0.15s; font-family:inherit;
+        }
+        .btn-primary { background:#C8A064; color:#001D38; }
+        .btn-primary:hover { background:#b38a4f; }
+        .btn-secondary { background:#ffffff; color:#001D38; border:1px solid #dfe4ea; }
+        .btn-secondary:hover { border-color:#001D38; }
+        .email-frame {
+            background:#ffffff; border-radius:12px; overflow:hidden;
+            box-shadow:0 4px 24px rgba(0,0,0,0.3);
+        }
+        iframe { width:100%; border:none; display:block; }
+        .info { font-size:12px; color:#8892a0; margin-top:12px; text-align:center; }
+        .info a { color:#e8a838; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="toolbar">
+            <a href="{{ url_for('download_comm', comm_id=comm.id, file_type='html') }}" class="btn btn-primary" download>Download HTML</a>
+            <a href="{{ url_for('communications') }}" class="btn btn-secondary">← Back to Communications</a>
+        </div>
+        <div class="email-frame">
+            <iframe srcdoc="{{ comm.email_html|e }}" id="emailPreview" onload="resizeIframe(this)"></iframe>
+        </div>
+        <div class="info">
+            <p>Email preview for <strong>{{ comm.title }}</strong> · Audience: {{ comm.audience_name }}</p>
+            <p>Copy the HTML source or download to use in your email client.</p>
+        </div>
+    </div>
+    <script>
+        function resizeIframe(el) {
+            el.style.height = (el.contentWindow.document.body.scrollHeight + 40) + 'px';
+        }
+    </script>
+</body>
+</html>

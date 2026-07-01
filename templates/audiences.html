@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block page_title %}Audience Segmentation{% endblock %}
+{% block content %}
+
+<div class="flex-between mb-6">
+    <p style="color:var(--text-muted);font-size:14px;">Define stakeholder groups with attributes, communication preferences, and concerns.</p>
+    <button class="btn btn-primary" onclick="openModal('createModal')">+ New Segment</button>
+</div>
+
+{% if segments %}
+<div class="grid-3">
+    {% for seg in segments %}
+    <div class="card">
+        <div class="flex-between mb-4">
+            <span class="tag tag-{{ seg.stakeholder_level|lower }}">{{ seg.stakeholder_level or 'General' }}</span>
+            <form method="POST" action="{{ url_for('delete_audience', aud_id=seg.id) }}" style="display:inline;" onsubmit="return confirm('Remove this segment?')">
+                <button class="btn btn-xs btn-danger">Delete</button>
+            </form>
+        </div>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;">{{ seg.name }}</h3>
+        <p style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-bottom:12px;">{{ seg.description }}</p>
+        {% if seg.attributes %}
+        <div style="margin-bottom:8px;">
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;">Attributes</div>
+            <p style="font-size:12px;color:var(--text-light);">{{ seg.attributes }}</p>
+        </div>
+        {% endif %}
+        {% if seg.communication_prefs %}
+        <div>
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;">Communication Preferences</div>
+            <p style="font-size:12px;color:var(--text-light);">{{ seg.communication_prefs }}</p>
+        </div>
+        {% endif %}
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(42,51,85,0.3);">
+            <button class="btn btn-xs btn-secondary" onclick="openEditModal({{ seg.id }})">Edit</button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:60px 20px;">
+    <div style="font-size:48px;margin-bottom:16px;">👥</div>
+    <h3 style="margin-bottom:8px;">No audience segments yet</h3>
+    <p style="color:var(--text-muted);margin-bottom:20px;">Define stakeholder groups to target with tailored communications.</p>
+    <button class="btn btn-primary" onclick="openModal('createModal')">Create Your First Segment</button>
+</div>
+{% endif %}
+
+<!-- Create Modal -->
+<div class="modal-overlay" id="createModal">
+    <div class="modal">
+        <h3>New Audience Segment</h3>
+        <form method="POST" action="{{ url_for('create_audience') }}">
+            <div class="form-group">
+                <label>Segment Name *</label>
+                <input type="text" name="name" class="form-control" required placeholder="e.g. Executive Leadership">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" class="form-control" placeholder="Who are they?" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Stakeholder Level</label>
+                <select name="stakeholder_level" class="form-control">
+                    <option value="">Select level</option>
+                    <option value="Executive">Executive</option>
+                    <option value="Management">Management</option>
+                    <option value="Frontline">Frontline</option>
+                    <option value="Operational">Operational</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Attributes &amp; Concerns</label>
+                <textarea name="attributes" class="form-control" placeholder="Key demographics, concerns, motivations..." rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Communication Preferences</label>
+                <textarea name="communication_prefs" class="form-control" placeholder="Preferred channels, tone, frequency..." rows="2"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Segment</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <h3>Edit Audience Segment</h3>
+        <form method="POST" id="editForm">
+            <div class="form-group">
+                <label>Segment Name *</label>
+                <input type="text" name="name" class="form-control" id="editName" required>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" class="form-control" id="editDesc" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Stakeholder Level</label>
+                <select name="stakeholder_level" class="form-control" id="editLevel">
+                    <option value="">Select level</option>
+                    <option value="Executive">Executive</option>
+                    <option value="Management">Management</option>
+                    <option value="Frontline">Frontline</option>
+                    <option value="Operational">Operational</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Attributes</label>
+                <textarea name="attributes" class="form-control" id="editAttrs" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Communication Preferences</label>
+                <textarea name="communication_prefs" class="form-control" id="editPrefs" rows="2"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(id) {
+    const cards = document.querySelectorAll('.grid-3 .card');
+    for (let card of cards) {
+        const nameEl = card.querySelector('h3');
+        if (!nameEl) continue;
+        const deleteBtn = card.querySelector('.btn-danger');
+        if (!deleteBtn) continue;
+        const actionUrl = deleteBtn.closest('form').action;
+        if (actionUrl.includes('/audiences/' + id + '/delete')) {
+            document.getElementById('editName').value = nameEl.textContent.trim();
+            const descP = card.querySelector('p');
+            document.getElementById('editDesc').value = descP ? descP.textContent.trim() : '';
+            document.getElementById('editForm').action = '/audiences/' + id + '/update';
+            openModal('editModal');
+            break;
+        }
+    }
+}
+</script>
+{% endblock %}

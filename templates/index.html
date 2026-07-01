@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+
+<!-- KPI Cards -->
+<div class="kpi-grid">
+    <div class="card">
+        <div class="card-title">Documents</div>
+        <div class="card-value">{{ stats.total_documents }}</div>
+        <div class="card-label">Active project documents</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Statistics</div>
+        <div class="card-value">{{ stats.total_statistics }}</div>
+        <div class="card-label">Datasets uploaded</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Audiences</div>
+        <div class="card-value">{{ stats.total_audiences }}</div>
+        <div class="card-label">Stakeholder segments</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Communications</div>
+        <div class="card-value">{{ stats.total_communications }}</div>
+        <div class="card-label">Generated pieces</div>
+    </div>
+    <div class="card">
+        <div class="card-title">Narratives</div>
+        <div class="card-value">{{ stats.total_narratives }}</div>
+        <div class="card-label">Messaging frameworks</div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="grid-2 mb-6">
+    <div class="card">
+        <div class="card-title">Communications by Month</div>
+        <div class="chart-container">
+            <canvas id="commsChart"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-title">Statistics Overview</div>
+        <div class="chart-container">
+            <canvas id="statsChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="grid-2">
+    <div class="card">
+        <div class="flex-between mb-4">
+            <div class="card-title" style="margin-bottom:0;">Recent Documents</div>
+            <a href="{{ url_for('documents') }}" class="btn btn-sm btn-secondary">View All</a>
+        </div>
+        {% if stats.recent_documents %}
+        <div style="font-size:13px;">
+            {% for doc in stats.recent_documents %}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(42,51,85,0.3);">
+                <div>
+                    <strong>{{ doc.title }}</strong>
+                    <span style="color:var(--text-muted);font-size:11px;display:block;">{{ doc.category }} · {{ doc.uploaded_at.strftime('%d %b %Y') }}</span>
+                </div>
+                <span class="file-type-badge">{{ doc.file_type }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted" style="text-align:center;padding:20px;">No documents uploaded yet.</p>
+        {% endif %}
+    </div>
+    <div class="card">
+        <div class="flex-between mb-4">
+            <div class="card-title" style="margin-bottom:0;">Recent Statistics</div>
+            <a href="{{ url_for('statistics') }}" class="btn btn-sm btn-secondary">View All</a>
+        </div>
+        {% if stats.recent_statistics %}
+        <div style="font-size:13px;">
+            {% for s in stats.recent_statistics %}
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(42,51,85,0.3);">
+                <div>
+                    <strong>{{ s.title }}</strong>
+                    <span style="color:var(--text-muted);font-size:11px;display:block;">{% if s.period %}{{ s.period }} · {% endif %}{{ s.uploaded_at.strftime('%d %b %Y') }}</span>
+                </div>
+                <span class="file-type-badge">{{ s.filename.split('.')[-1] }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted" style="text-align:center;padding:20px;">No statistics uploaded yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+fetch('{{ url_for("dashboard_data") }}')
+    .then(r => r.json())
+    .then(data => {
+        // Communications by month chart
+        const months = Object.keys(data.comms_by_month);
+        const commsVals = Object.values(data.comms_by_month);
+        if (months.length) {
+            new Chart(document.getElementById('commsChart'), {
+                type: 'bar',
+                data: {
+                    labels: months,
+                    datasets: [{
+                        label: 'Communications',
+                        data: commsVals,
+                        backgroundColor: 'rgba(0,179,152,0.5)',
+                        borderColor: '#00B398',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8892a0' } },
+                        x: { grid: { display: false }, ticks: { color: '#8892a0' } }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('commsChart').parentElement.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px;">No communication data yet.</p>';
+        }
+
+        // Statistics summary chart
+        const statsList = data.statistics || [];
+        if (statsList.length) {
+            const labels = statsList.map(s => s.title.substring(0, 20));
+            const values = statsList.map(s => {
+                const cfg = s.chart_config;
+                if (cfg && cfg.values) return cfg.values.reduce((a, b) => a + b, 0);
+                return 1;
+            });
+            new Chart(document.getElementById('statsChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#C8A064','#00B398','#44546A','#001D38','#0a2744','#6c7a8a'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#8892a0', font: { size: 11 }, padding: 12 }
+                        }
+                    }
+                }
+            });
+        } else {
+            document.getElementById('statsChart').parentElement.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px;">No statistics uploaded yet.</p>';
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+{% block page_title %}Statistics & Analytics{% endblock %}
+{% block content %}
+
+<div class="flex-between mb-6">
+    <p style="color:var(--text-muted);font-size:14px;">Upload change intervention data. AI interprets it and builds visual dashboards.</p>
+    <button class="btn btn-primary" onclick="openModal('uploadModal')">+ Upload Statistics</button>
+</div>
+
+{% if stats_list %}
+<div class="grid-3" style="margin-bottom:30px;">
+    {% for s in stats_list %}
+    <div class="card stat-card" data-stat-id="{{ s.id }}" style="cursor:pointer;" onclick="showStatDetail({{ s.id }})">
+        <div class="flex-between mb-4">
+            <span class="file-type-badge">{{ s.period or 'No period' }}</span>
+            <span style="font-size:11px;color:var(--text-muted);">{{ s.uploaded_at.strftime('%d %b') }}</span>
+        </div>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;">{{ s.title }}</h3>
+        {% if s.description %}
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">{{ s.description[:100] }}{% if s.description|length > 100 %}...{% endif %}</p>
+        {% endif %}
+        <div style="height:120px;position:relative;">
+            <canvas id="miniChart_{{ s.id }}"></canvas>
+        </div>
+        {% if s.data_summary %}
+        {% set summary = s.data_summary|from_json %}
+        {% if summary is mapping and summary.get('parsed_rows') %}
+        <div style="margin-top:10px;font-size:11px;color:var(--text-muted);">
+            {{ summary.parsed_rows }} rows · {{ summary.parsed_headers|length if summary.parsed_headers else 0 }} columns
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:60px 20px;margin-bottom:30px;">
+    <div style="font-size:48px;margin-bottom:16px;">📈</div>
+    <h3 style="margin-bottom:8px;">No statistics yet</h3>
+    <p class="text-muted" style="margin-bottom:20px;">Upload CSV, JSON, or TXT files with change data. AI will analyse and create visual dashboards.</p>
+    <button class="btn btn-primary" onclick="openModal('uploadModal')">Upload Statistics</button>
+</div>
+{% endif %}
+
+<!-- Detail Panel (loaded on click) -->
+<div id="detailPanel" style="display:none;" class="mb-6">
+    <div class="card">
+        <div class="flex-between mb-4">
+            <div>
+                <div class="card-title" id="detailTitle" style="margin-bottom:4px;">Statistic Detail</div>
+                <span id="detailMeta" style="font-size:12px;color:var(--text-muted);"></span>
+            </div>
+            <div class="flex gap-2">
+                <button class="btn btn-sm btn-secondary" onclick="reanalyseStat()">Re-analyse</button>
+                <button class="btn btn-sm btn-secondary" onclick="closeDetail()">Close</button>
+            </div>
+        </div>
+        <div class="grid-2">
+            <div>
+                <h4 style="font-size:14px;font-weight:600;margin-bottom:12px;color:var(--accent);">AI Summary</h4>
+                <p id="detailSummary" style="font-size:13px;line-height:1.6;color:var(--text-light);"></p>
+                <h4 style="font-size:14px;font-weight:600;margin:16px 0 12px;color:var(--accent);">Key Insights</h4>
+                <div id="detailInsights"></div>
+                <h4 style="font-size:14px;font-weight:600;margin:16px 0 12px;color:var(--accent);">Recommendations</h4>
+                <div id="detailRecommendations"></div>
+            </div>
+            <div>
+                <div style="height:300px;position:relative;">
+                    <canvas id="detailChart"></canvas>
+                </div>
+                <!-- KPI cards in chart -->
+                <div id="detailKPIs" class="kpi-grid" style="margin-top:16px;grid-template-columns:repeat(2,1fr);"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal-overlay" id="uploadModal">
+    <div class="modal">
+        <h3>Upload Statistics</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">Upload CSV, JSON, or TXT files with change intervention data. AI will interpret and create visual dashboards.</p>
+        <form method="POST" action="{{ url_for('upload_statistics') }}" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" name="title" class="form-control" required placeholder="e.g. Workshop 1 Feedback Scores">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" class="form-control" placeholder="What does this data capture?" rows="2"></textarea>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Source</label>
+                    <input type="text" name="source" class="form-control" placeholder="e.g. Survey, LMS, HRIS">
+                </div>
+                <div class="form-group">
+                    <label>Period</label>
+                    <input type="text" name="period" class="form-control" placeholder="e.g. Q2 2026">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Data File *</label>
+                <input type="file" name="file" class="form-control" required accept=".csv,.json,.txt">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('uploadModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Upload & Analyse</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Delete form (hidden, used via JS) -->
+<form id="deleteStatForm" method="POST" style="display:none;"></form>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Store chart instances for cleanup
+const miniCharts = {};
+let detailChartInstance = null;
+let currentDetailId = null;
+
+// Render mini charts on cards
+{% for s in stats_list %}
+{% set cfg = s.chart_config|from_json if s.chart_config else {} %}
+{% if cfg and cfg.labels and cfg.values %}
+(function() {
+    const ctx = document.getElementById('miniChart_{{ s.id }}');
+    if (!ctx) return;
+    miniCharts['{{ s.id }}'] = new Chart(ctx, {
+        type: '{{ cfg.type|default("bar") }}',
+        data: {
+            labels: {{ cfg.labels|tojson }},
+            datasets: [{
+                data: {{ cfg.values|tojson }},
+                backgroundColor: 'rgba(0,179,152,0.3)',
+                borderColor: '#00B398',
+                borderWidth: 1,
+                borderRadius: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { display: false, beginAtZero: true },
+                x: { display: false }
+            }
+        }
+    });
+})();
+{% endif %}
+{% endfor %}
+
+function showStatDetail(id) {
+    currentDetailId = id;
+    fetch('/statistics/' + id + '/data')
+        .then(r => r.json())
+        .then(data => {
+            document.getElementById('detailPanel').style.display = 'block';
+            document.getElementById('detailTitle').textContent = data.title;
+            document.getElementById('detailMeta').textContent = (data.period ? data.period + ' · ' : '') + (data.source ? data.source : '');
+
+            const chart = data.chart || {};
+            const summary = data.summary || {};
+            const ai = summary.ai || {};
+
+            // Summary
+            document.getElementById('detailSummary').textContent = ai.summary || 'No AI summary available.';
+
+            // Insights
+            const insightsEl = document.getElementById('detailInsights');
+            insightsEl.innerHTML = '';
+            (ai.insights || []).forEach(i => {
+                const div = document.createElement('div');
+                div.className = 'insight-card';
+                div.textContent = '💡 ' + i;
+                insightsEl.appendChild(div);
+            });
+
+            // Recommendations
+            const recsEl = document.getElementById('detailRecommendations');
+            recsEl.innerHTML = '';
+            (ai.recommendations || []).forEach(r => {
+                const div = document.createElement('div');
+                div.className = 'insight-card recommendation';
+                div.textContent = '→ ' + r;
+                recsEl.appendChild(div);
+            });
+
+            // Chart
+            const ctx = document.getElementById('detailChart');
+            if (detailChartInstance) detailChartInstance.destroy();
+            if (chart.labels && chart.values && chart.labels.length) {
+                detailChartInstance = new Chart(ctx, {
+                    type: chart.type || 'bar',
+                    data: {
+                        labels: chart.labels,
+                        datasets: [{
+                            label: chart.label || data.title,
+                            data: chart.values,
+                            backgroundColor: [
+                                'rgba(200,160,100,0.7)', 'rgba(0,179,152,0.7)',
+                                'rgba(68,84,106,0.7)', 'rgba(0,29,56,0.7)',
+                                'rgba(108,122,138,0.7)', 'rgba(10,39,68,0.7)'
+                            ],
+                            borderColor: '#C8A064',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { labels: { color: '#8892a0', font: { size: 11 } } }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#8892a0' } },
+                            x: { grid: { display: false }, ticks: { color: '#8892a0' } }
+                        }
+                    }
+                });
+            } else {
+                ctx.parentElement.innerHTML = '<p class="text-muted" style="text-align:center;padding:40px;">Chart data not available.</p>';
+            }
+
+            // KPI cards
+            const kpisEl = document.getElementById('detailKPIs');
+            kpisEl.innerHTML = '';
+            (ai.kpi_cards || []).forEach(kpi => {
+                const changeIcon = kpi.change === 'positive' ? '▲' : kpi.change === 'negative' ? '▼' : '→';
+                const changeColor = kpi.change === 'positive' ? 'var(--success)' : kpi.change === 'negative' ? 'var(--danger)' : 'var(--text-muted)';
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">${kpi.label || ''}</div>
+                    <div style="font-size:24px;font-weight:700;margin:4px 0;">${kpi.value || ''}</div>
+                    <div style="font-size:12px;color:${changeColor};">${changeIcon} ${kpi.change || 'stable'}</div>
+                `;
+                kpisEl.appendChild(card);
+            });
+
+            // Scroll to detail
+            document.getElementById('detailPanel').scrollIntoView({ behavior: 'smooth' });
+        });
+}
+
+function reanalyseStat() {
+    if (!currentDetailId) return;
+    const form = document.getElementById('deleteStatForm');
+    form.action = '/statistics/' + currentDetailId + '/reanalyse';
+    form.method = 'POST';
+    // Create a hidden submit button
+    const btn = document.createElement('button');
+    btn.type = 'submit';
+    btn.style.display = 'none';
+    form.appendChild(btn);
+    btn.click();
+}
+
+function closeDetail() {
+    document.getElementById('detailPanel').style.display = 'none';
+    if (detailChartInstance) {
+        detailChartInstance.destroy();
+        detailChartInstance = null;
+    }
+}
+</script>
+{% endblock %}

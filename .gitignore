@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# Database
+*.db
+*.sqlite
+instance/
+
+# Uploaded files (keep structure, not content)
+static/uploads/*
+!static/uploads/.gitkeep
+
+# Logos - we want these in the repo
+# static/logos/*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Hermes
+.hermes/

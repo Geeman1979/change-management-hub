@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+{% block page_title %}Narrative &amp; Messaging{% endblock %}
+{% block content %}
+
+<div class="flex-between mb-6">
+    <p style="color:var(--text-muted);font-size:14px;">Create change narratives, vision statements, key messages, and talking points for leaders.</p>
+    <button class="btn btn-primary" onclick="openModal('createModal')">+ New Narrative</button>
+</div>
+
+{% if narratives %}
+<div class="grid-2">
+    {% for n in narratives %}
+    <div class="card">
+        <div class="flex-between mb-4">
+            <span class="file-type-badge">{{ n.narrative_type|replace('_', ' ')|title }}</span>
+            <span style="font-size:11px;color:var(--text-muted);">v{{ n.version or 1 }}</span>
+        </div>
+        <h3 style="font-size:16px;font-weight:600;margin-bottom:8px;">{{ n.title }}</h3>
+        {% if n.content %}
+        <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:12px;">{{ n.content[:200] }}{% if n.content|length > 200 %}...{% endif %}</p>
+        {% endif %}
+
+        {% if n.key_messages %}
+        {% set msg_data = n.key_messages|from_json %}
+        {% if msg_data and msg_data.key_messages %}
+        <div style="margin-bottom:8px;">
+            <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Key Messages</div>
+            {% for msg in msg_data.key_messages[:3] %}
+            <div style="font-size:12px;padding:4px 0;color:var(--accent);">→ {{ msg }}</div>
+            {% endfor %}
+            {% if msg_data.key_messages|length > 3 %}
+            <div style="font-size:11px;color:var(--text-muted);">+{{ msg_data.key_messages|length - 3 }} more</div>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% endif %}
+
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(42,51,85,0.3);display:flex;gap:8px;">
+            <button class="btn btn-xs btn-secondary" onclick="openEditModal({{ n.id }})">Edit</button>
+            <form method="POST" action="{{ url_for('delete_narrative', narr_id=n.id) }}" style="display:inline;" onsubmit="return confirm('Delete this narrative?')">
+                <button class="btn btn-xs btn-danger">Delete</button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:60px 20px;">
+    <div style="font-size:48px;margin-bottom:16px;">📝</div>
+    <h3 style="margin-bottom:8px;">No narratives yet</h3>
+    <p style="color:var(--text-muted);margin-bottom:20px;">Create change stories, vision statements, key messages, and leader talking points.</p>
+    <button class="btn btn-primary" onclick="openModal('createModal')">Create Your First Narrative</button>
+</div>
+{% endif %}
+
+<!-- Create Modal -->
+<div class="modal-overlay" id="createModal">
+    <div class="modal" style="max-width:650px;">
+        <h3>Create Narrative &amp; Messaging</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">AI will generate a structured narrative based on your context. Optionally target an audience segment.</p>
+        <form method="POST" action="{{ url_for('create_narrative') }}">
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" name="title" class="form-control" required placeholder="e.g. Our Change Journey — Vision 2026">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Narrative Type</label>
+                    <select name="narrative_type" class="form-control">
+                        <option value="change_story">Change Story</option>
+                        <option value="vision">Vision Statement</option>
+                        <option value="key_message">Key Messages</option>
+                        <option value="talking_points">Talking Points</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Target Audience (optional)</label>
+                    <select name="audience_id" class="form-control">
+                        <option value="">General</option>
+                        {% for seg in audiences %}
+                        <option value="{{ seg.id }}">{{ seg.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Context / Background *</label>
+                <textarea name="context" class="form-control" required placeholder="Describe the change situation, why it's happening, what's at stake..." rows="4"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('createModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Generate Narrative</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal" style="max-width:650px;">
+        <h3>Edit Narrative</h3>
+        <form method="POST" id="editForm">
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" name="title" class="form-control" id="editTitle" required>
+            </div>
+            <div class="form-group">
+                <label>Narrative Type</label>
+                <select name="narrative_type" class="form-control" id="editType">
+                    <option value="change_story">Change Story</option>
+                    <option value="vision">Vision Statement</option>
+                    <option value="key_message">Key Messages</option>
+                    <option value="talking_points">Talking Points</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Content</label>
+                <textarea name="content" class="form-control" id="editContent" rows="6"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Key Messages (JSON)</label>
+                <textarea name="key_messages" class="form-control" id="editMessages" rows="4"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(id) {
+    const cards = document.querySelectorAll('.grid-2 .card');
+    for (let card of cards) {
+        const deleteForm = card.querySelector('form[action*="/narratives/' + id + '/delete"]');
+        if (deleteForm) {
+            const title = card.querySelector('h3').textContent.trim();
+            const typeBadge = card.querySelector('.file-type-badge').textContent.trim().toLowerCase().replace(/ /g, '_');
+            const contentP = card.querySelector('p');
+            const content = contentP ? card.querySelector('p').textContent.trim() : '';
+
+            document.getElementById('editTitle').value = title;
+            document.getElementById('editType').value = typeBadge;
+            document.getElementById('editContent').value = content;
+            document.getElementById('editForm').action = '/narratives/' + id + '/update';
+            openModal('editModal');
+            break;
+        }
+    }
+}
+</script>
+{% endblock %}

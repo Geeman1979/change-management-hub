@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block page_title %}Communications Generator{% endblock %}
+{% block content %}
+
+<div class="flex-between mb-6">
+    <p style="color:var(--text-muted);font-size:14px;">Generate stakeholder communications and export as Word, PowerPoint, or email-ready HTML.</p>
+    <button class="btn btn-primary" onclick="openModal('generateModal')">+ Generate Communication</button>
+</div>
+
+{% if comms %}
+<div class="card" style="padding:0;">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Audience</th>
+                    <th>Type</th>
+                    <th>Tone</th>
+                    <th>Status</th>
+                    <th>Generated</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in comms %}
+                <tr>
+                    <td><strong>{{ c.title }}</strong></td>
+                    <td><span style="color:var(--accent);font-size:12px;">{{ c.audience_name }}</span></td>
+                    <td><span class="file-type-badge">{{ c.comm_type }}</span></td>
+                    <td style="font-size:12px;color:var(--text-muted);text-transform:capitalize;">{{ c.tone }}</td>
+                    <td>
+                        <span class="tag" style="background:{% if c.status == 'draft' %}rgba(251,191,36,0.15);color:var(--warning){% elif c.status == 'finalised' %}rgba(74,222,128,0.15);color:var(--success){% else %}rgba(96,165,250,0.15);color:var(--info){% endif %}">
+                            {{ c.status|title }}
+                        </span>
+                    </td>
+                    <td style="color:var(--text-muted);font-size:12px;">{{ c.generated_at.strftime('%d %b %Y') }}</td>
+                    <td style="text-align:right;">
+                        <div class="flex gap-2" style="justify-content:flex-end;">
+                            {% if c.email_html %}
+                            <a href="{{ url_for('view_email', comm_id=c.id) }}" class="btn btn-xs btn-secondary" target="_blank">Email</a>
+                            {% endif %}
+                            {% if c.docx_path %}
+                            <a href="{{ url_for('download_comm', comm_id=c.id, file_type='docx') }}" class="btn btn-xs btn-secondary">Word</a>
+                            {% endif %}
+                            {% if c.pptx_path %}
+                            <a href="{{ url_for('download_comm', comm_id=c.id, file_type='pptx') }}" class="btn btn-xs btn-secondary">PPT</a>
+                            {% endif %}
+                            <form method="POST" action="{{ url_for('delete_communication', comm_id=c.id) }}" style="display:inline;" onsubmit="return confirm('Delete this communication?')">
+                                <button class="btn btn-xs btn-danger">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:60px 20px;">
+    <div style="font-size:48px;margin-bottom:16px;">✉️</div>
+    <h3 style="margin-bottom:8px;">No communications yet</h3>
+    <p style="color:var(--text-muted);margin-bottom:20px;">Generate email-ready communications or presentations for your stakeholder groups.</p>
+    <button class="btn btn-primary" onclick="openModal('generateModal')">Generate Your First Communication</button>
+</div>
+{% endif %}
+
+<!-- Generate Modal -->
+<div class="modal-overlay" id="generateModal">
+    <div class="modal" style="max-width:650px;">
+        <h3>Generate Communication</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">AI will create content tailored to the selected audience, purpose, and tone.</p>
+        <form method="POST" action="{{ url_for('generate_comm') }}">
+            <div class="form-group">
+                <label>Title *</label>
+                <input type="text" name="title" class="form-control" required placeholder="e.g. Q2 Change Update — All Staff">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Type</label>
+                    <select name="comm_type" class="form-control">
+                        <option value="email">Email</option>
+                        <option value="memo">Memo</option>
+                        <option value="newsletter">Newsletter</option>
+                        <option value="presentation">Presentation</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tone</label>
+                    <select name="tone" class="form-control">
+                        <option value="professional">Professional</option>
+                        <option value="warm">Warm &amp; Personal</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="inspirational">Inspirational</option>
+                        <option value="formal">Formal</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Target Audience</label>
+                <select name="audience_id" class="form-control">
+                    <option value="">General Stakeholders</option>
+                    {% for seg in audiences %}
+                    <option value="{{ seg.id }}">{{ seg.name }} ({{ seg.stakeholder_level or 'General' }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Purpose / Key Message *</label>
+                <textarea name="purpose" class="form-control" required placeholder="Why are we communicating? What's the key message?" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Key Messages (one per line, optional)</label>
+                <textarea name="key_messages" class="form-control" placeholder="Message 1&#10;Message 2&#10;Message 3" rows="3"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Output Formats</label>
+                <div style="display:flex;gap:20px;padding:8px 0;">
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                        <input type="checkbox" name="generate_docx" checked> Word Document
+                    </label>
+                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">
+                        <input type="checkbox" name="generate_pptx" checked> PowerPoint
+                    </label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('generateModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Generate</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

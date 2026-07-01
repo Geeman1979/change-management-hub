@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block page_title %}Project Documents{% endblock %}
+{% block content %}
+
+<div class="flex-between mb-6">
+    <p style="color:var(--text-muted);font-size:14px;">Upload, organise, and manage change management documents.</p>
+    <button class="btn btn-primary" onclick="openModal('uploadModal')">+ Upload Document</button>
+</div>
+
+{% if docs %}
+<div class="card" style="padding:0;">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Updated</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in docs %}
+                <tr>
+                    <td>
+                        <strong>{{ doc.title }}</strong>
+                        {% if doc.description %}
+                        <div style="color:var(--text-muted);font-size:11px;margin-top:2px;">{{ doc.description[:80] }}{% if doc.description|length > 80 %}...{% endif %}</div>
+                        {% endif %}
+                    </td>
+                    <td><span class="file-type-badge">{{ doc.category }}</span></td>
+                    <td><span class="file-type-badge">{{ doc.file_type }}</span></td>
+                    <td style="color:var(--text-muted);font-size:12px;">
+                        {% if doc.file_size < 1024 %}
+                            {{ doc.file_size }} B
+                        {% elif doc.file_size < 1024*1024 %}
+                            {{ (doc.file_size / 1024)|round(1) }} KB
+                        {% else %}
+                            {{ (doc.file_size / (1024*1024))|round(1) }} MB
+                        {% endif %}
+                    </td>
+                    <td style="color:var(--text-muted);font-size:12px;">{{ doc.updated_at.strftime('%d %b %Y') }}</td>
+                    <td style="text-align:right;">
+                        <div class="flex gap-2" style="justify-content:flex-end;">
+                            <a href="{{ url_for('view_document', doc_id=doc.id) }}" class="btn btn-xs btn-secondary" target="_blank">View</a>
+                            <button class="btn btn-xs btn-secondary" onclick="openEditModal({{ doc.id }})">Edit</button>
+                            <form method="POST" action="{{ url_for('delete_document', doc_id=doc.id) }}" style="display:inline;" onsubmit="return confirm('Remove this document?')">
+                                <button class="btn btn-xs btn-danger">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:60px 20px;">
+    <div style="font-size:48px;margin-bottom:16px;">📄</div>
+    <h3 style="margin-bottom:8px;">No documents yet</h3>
+    <p class="text-muted" style="margin-bottom:20px;">Upload project charters, plans, risk registers, and other change documents.</p>
+    <button class="btn btn-primary" onclick="openModal('uploadModal')">Upload Your First Document</button>
+</div>
+{% endif %}
+
+<!-- Upload Modal -->
+<div class="modal-overlay" id="uploadModal">
+    <div class="modal">
+        <h3>Upload Document</h3>
+        <form method="POST" action="{{ url_for('upload_document') }}" enctype="multipart/form-data">
+            <div class="form-group">
+                <label>Document Title *</label>
+                <input type="text" name="title" class="form-control" required placeholder="e.g. IMPACT Programme Charter v2">
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select name="category" class="form-control">
+                    <option value="General">General</option>
+                    <option value="Charter">Charter</option>
+                    <option value="Project Plan">Project Plan</option>
+                    <option value="Status Report">Status Report</option>
+                    <option value="Risk Register">Risk Register</option>
+                    <option value="Stakeholder Analysis">Stakeholder Analysis</option>
+                    <option value="Communication Plan">Communication Plan</option>
+                    <option value="Training Material">Training Material</option>
+                    <option value="Feedback">Feedback</option>
+                    <option value="Governance">Governance</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" class="form-control" placeholder="Brief description of this document" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label>File *</label>
+                <input type="file" name="file" class="form-control" required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('uploadModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <h3>Update Document</h3>
+        <form method="POST" enctype="multipart/form-data" id="editForm">
+            <div class="form-group">
+                <label>Document Title *</label>
+                <input type="text" name="title" class="form-control" id="editTitle" required>
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select name="category" class="form-control" id="editCategory">
+                    <option value="General">General</option>
+                    <option value="Charter">Charter</option>
+                    <option value="Project Plan">Project Plan</option>
+                    <option value="Status Report">Status Report</option>
+                    <option value="Risk Register">Risk Register</option>
+                    <option value="Stakeholder Analysis">Stakeholder Analysis</option>
+                    <option value="Communication Plan">Communication Plan</option>
+                    <option value="Training Material">Training Material</option>
+                    <option value="Feedback">Feedback</option>
+                    <option value="Governance">Governance</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" class="form-control" id="editDescription" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Replace File (optional)</label>
+                <input type="file" name="file" class="form-control">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEditModal(id) {
+    fetch('/documents/' + id + '/view')
+        .then(() => {
+            // We need doc data — store it in data attributes or fetch via API
+            const row = document.querySelector(`tr:has(a[href="/documents/${id}/view"])`);
+            if (row) {
+                const title = row.querySelector('strong').textContent;
+                const desc = row.querySelector('td:first-child div')?.textContent?.trim() || '';
+                const cat = row.querySelector('.file-type-badge').textContent;
+                document.getElementById('editTitle').value = title;
+                document.getElementById('editDescription').value = desc;
+                document.getElementById('editCategory').value = cat;
+                document.getElementById('editForm').action = '/documents/' + id + '/update';
+                openModal('editModal');
+            }
+        });
+}
+</script>
+{% endblock %}

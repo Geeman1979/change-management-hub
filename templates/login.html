@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block unauthenticated %}
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#eef1f4;padding:20px;">
+    <div style="background:#fff;border:1px solid #dfe4ea;border-radius:8px;padding:40px;width:100%;max-width:400px;box-shadow:0 8px 30px rgba(0,29,56,0.1);">
+        <div style="text-align:center;margin-bottom:32px;">
+            <img src="{{ url_for('static', filename='logos/gf_impact_logo.png') }}" alt="Gold Fields IMPACT" style="height:40px;margin-bottom:16px;" onerror="this.style.display='none'">
+            <h1 style="font-size:13px;font-weight:700;color:#001D38;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">
+                {{ brand.brand_name if brand else 'IMPACT Programme — Change Management Hub' }}
+            </h1>
+            <p style="font-size:12px;color:#6c7a8a;">Sign in to your account</p>
+        </div>
+        <form method="POST">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" name="username" class="form-control" placeholder="Enter username" required autofocus>
+            </div>
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" class="form-control" placeholder="Enter password" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:10px;font-size:13px;">Sign In</button>
+        </form>
+        <div style="margin-top:20px;padding-top:16px;border-top:1px solid #dfe4ea;font-size:11px;color:#6c7a8a;text-align:center;">
+            <p>Demo: <strong>admin</strong> / <strong>admin123</strong></p>
+            <p style="margin-top:2px;">or <strong>manager</strong> / <strong>manager123</strong></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
